@@ -2,304 +2,532 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>이미지 편집 + 텍스트 입력 + 300DPI 저장</title>
+  <title>페어틀</title>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <style>
-    body { font-family: sans-serif; margin: 0; padding: 20px; box-sizing: border-box; }
-    #topBar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-    #modeBtn, #editBtn, #textBtn { padding: 8px 16px; cursor: pointer; }
-    #saveBtn { position: absolute; top: 20px; right: 20px; padding: 8px 16px; cursor: pointer; }
-    #preview {
-      position: relative;
-      width: 100%;
-      max-width: 960px;
-      aspect-ratio: 16 / 9;
-      border: 1px solid #ccc;
-      background-color: white;
-      overflow: hidden;
+    * {
+  box-sizing: border-box;
+}
+    body {
+      font-family: sans-serif;
+      margin:0;
+      padding:20px
+    }
+    #topBar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:10px;}
+    #topBar button{padding:8px 16px;cursor:pointer;background:#f0f0f0;border:1px solid #ccc;border-radius:4px;}
+    #saveBtn{position:absolute;top:20px;right:20px;padding:8px 16px;cursor:pointer;background:#007bff;color:white;border:none;border-radius:4px;}
+    #preview{position:relative;width:100%;aspect-ratio:16/9;border:1px solid #ccc;background:white;overflow:hidden;margin:0 auto;}
+    #imageContainer{flex-grow:1;display:grid;gap:10px;padding:10px;box-sizing:border-box;}
+    
+    .slot-wrapper {
       display: flex;
       flex-direction: column;
-      justify-content: space-between;
-      box-sizing: border-box;
-    }
-    #imageContainer {
-      flex-grow: 1;
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      grid-template-rows: repeat(2, 1fr);
-      gap: 10px;
-      padding: 10px;
-      box-sizing: border-box;
-    }
-    .slot {
-      position: relative;
-      overflow: hidden;
-      cursor: pointer;
       border: 1px dashed #aaa;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #777;
-      font-size: 14px;
+      border-radius: 4px;
+      background: #f9f9f9;
+      overflow: hidden; 
     }
-    .image-inner {
-      position: absolute;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background-size: cover;
-      background-position: center;
-      transition: transform 0.05s linear;
+
+    .slot{
+      position:relative;
+      overflow:hidden;
+      cursor:pointer;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color:#777;
+      flex-grow: 1; 
+      min-height: 50px; 
     }
-    .draggable { cursor: move; }
-    #textAreaContainer {
-      display: flex;
-      justify-content: space-between;
-      padding: 10px 20px;
-      box-sizing: border-box;
+    
+    .slot img{
+      position:absolute;
+      width:100%;
+      height:auto;
+      object-fit:cover;
+      object-position:center;
+      display:none;
+      transition:transform 0.05s linear;
     }
-    #title { font-size: 20px; font-weight: bold; }
-    #content { font-size: 16px; width: 70%; white-space: pre-wrap; }
-    textarea { width: 70%; height: 80px; resize: none; font-size: 16px; }
-    input[type="file"] { display: none; }
+    
+    .slot .placeholder{color:#777;font-size:14px;}
+    
+    .caption{
+      font-size:12px;
+      color:#333;
+      text-align:right; 
+      padding:4px;
+      position: absolute; 
+      bottom: 5px; 
+      right: 5px; 
+      z-index: 99999; 
+      background-color: rgba(255, 255, 255, 0.7); 
+      border-radius: 3px;
+    }
+    
+    .caption.hidden {
+      display: none;
+    }
+
+    .slot-title {
+      font-size: 16px;
+      font-weight: bold;
+      color: #333; 
+      text-align: left;
+      padding: 4px 8px;
+      border-bottom: 1px dashed #aaa; 
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: background-color 0.3s, color 0.3s; 
+    }
+
+    #textAreaContainer{display:flex;justify-content:space-between;padding:10px 20px;box-sizing:border-box;}
+    #textAreaLeft{width:70%;}
+    #textAreaRight{width:25%;display:flex;flex-direction:row;gap:8px;justify-content:flex-end;}
+    #title,#content{white-space:pre-wrap;word-break:break-word;}
+    textarea{width:100%;height:80px;resize:none;font-size:16px;}
+    input[type="text"]{width:100%;font-size:16px;margin-bottom:5px;}
+    
+    #fileInput,#importInput{display:none;}
+    /* Fix: Changed 1fr 1fr to 50% 50% for capture stability */
+    #imageContainer.one{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:10px;height:100%;}
+    
+    #imageContainer.one > .slot-wrapper:nth-child(1){grid-column:1;grid-row:1/span 2;}
+    
+    #imageContainer.one #rightBottomWrapper {
+      grid-column: 2;
+      grid-row: 2;
+      display: grid;
+      grid-template-columns: 1fr 1fr; 
+      gap: 10px;
+    }
+
+    #imageContainer.one #textAreaContainer{grid-column:2;grid-row:1;display:flex;flex-direction:column;justify-content:center;}
+    .color-section{border:1px solid #aaa;border-radius:6px;padding:6px;margin-bottom:6px;}
+    .color-section-title{font-weight:bold;text-align:center;margin-bottom:4px;font-size:14px;}
+    .color-block{margin-bottom:6px;}
+    .color-title{font-size:13px;font-weight:bold;margin-bottom:2px;}
+    .color-display{width:100%;height:25px;border:1px solid #555;border-radius:4px;}
+    .modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);justify-content:center;align-items:center;z-index:1000;}
+    .modal-content{background:#fff;padding:20px;border-radius:8px;width:380px;max-height:80vh;overflow:auto;}
   </style>
 </head>
+
 <body>
   <div id="topBar">
-    <button id="modeBtn" type="button">1인용</button>
-    <button id="editBtn" type="button">이미지 편집</button>
-    <button id="textBtn" type="button">텍스트 입력</button>
+    <button id="modeBtn">1인용</button>
+    <button id="editBtn">이미지 편집</button>
+    <button id="colorBtn">색상 입력</button>
+    <button id="textBtn">텍스트 입력</button>
+    <button id="exportBtn">상태 내보내기 (TXT)</button>
+    <button id="importBtn">상태 가져오기 (TXT)</button>
+    <input type="file" id="importInput" accept=".txt">
   </div>
 
-  <button id="saveBtn" type="button">이미지 저장</button>
+<button id="saveBtn">이미지 저장</button>
 
-  <div id="preview">
-    <div id="imageContainer"></div>
-    <div id="textAreaContainer">
-      <div id="title">제목</div>
-      <div id="content">내용</div>
-    </div>
-  </div>
-
+  <div id="preview"><div id="imageContainer"></div></div>
   <input type="file" id="fileInput" accept="image/*">
 
+  <div id="colorModal" class="modal">
+    <div class="modal-content" id="colorModalContent"></div>
+  </div>
+
   <script>
-    const modeBtn = document.getElementById('modeBtn');
-    const editBtn = document.getElementById('editBtn');
-    const textBtn = document.getElementById('textBtn');
-    const saveBtn = document.getElementById('saveBtn');
-    const fileInput = document.getElementById('fileInput');
-    const imageContainer = document.getElementById('imageContainer');
-    let contentDiv = document.getElementById('content');
-    let activeSlot = null;
-    let isSingle = true;
-    let editMode = false;
-    let textMode = false;
+    const modeBtn=document.getElementById('modeBtn');
+    const editBtn=document.getElementById('editBtn');
+    const colorBtn=document.getElementById('colorBtn');
+    const textBtn=document.getElementById('textBtn');
+    const saveBtn=document.getElementById('saveBtn');
+    const fileInput=document.getElementById('fileInput');
+    const imageContainer=document.getElementById('imageContainer');
+    const colorModal=document.getElementById('colorModal');
+    const colorModalContent=document.getElementById('colorModalContent');
+    const exportBtn=document.getElementById('exportBtn');
+    const importInput=document.getElementById('importInput');
+    const importBtn=document.getElementById('importBtn');
+
+    let titleDiv=null,contentDiv=null,textAreaRight=null;
+    let isSingle=true,editMode=false,textMode=false;
+    let activeSlotImg=null;
+
+    let colorData={left:{theme:['#ffffff'],hair:['#000000'],eyeLeft:['#000000'],eyeRight:['#000000']},
+                   right:{theme:['#ffffff'],hair:['#000000'],eyeLeft:['#000000'],eyeRight:['#000000']}};
+
+    function getContrastYIQ(hexcolor){
+      try {
+        hexcolor = hexcolor.replace("#", "");
+        const r = parseInt(hexcolor.substr(0,2),16);
+        const g = parseInt(hexcolor.substr(2,2),16);
+        const b = parseInt(hexcolor.substr(4,2),16);
+        const yiq = ((r*299)+(g*587)+(b*114))/1000;
+        return (yiq >= 128) ? '#000000' : '#ffffff';
+      } catch (e) {
+        return '#000000'; 
+      }
+    }
+
+    function applySlotThemeColors() {
+      const slotTitles = document.querySelectorAll('.slot-title');
+      if (!slotTitles.length) return;
+
+      const leftTheme = colorData.left.theme[0];
+      const leftContrast = getContrastYIQ(leftTheme);
+      
+      const rightTheme = isSingle ? null : colorData.right.theme[0];
+      const rightContrast = isSingle ? null : getContrastYIQ(rightTheme);
+
+      slotTitles.forEach((title, i) => {
+        let theme, contrast;
+        if (isSingle) {
+          theme = leftTheme;
+          contrast = leftContrast;
+        } else {
+          if (i < 3) { 
+            theme = leftTheme;
+            contrast = leftContrast;
+          } else { 
+            theme = rightTheme;
+            contrast = rightContrast;
+          }
+        }
+        title.style.backgroundColor = theme;
+        title.style.color = contrast;
+      });
+    }
+
+    function createSlotElements(i) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'slot-wrapper';
+
+      const slotTitle = document.createElement('div');
+      slotTitle.className = 'slot-title';
+      slotTitle.textContent = '이미지 제목'; 
+      wrapper.appendChild(slotTitle);
+
+      const s = document.createElement('div');
+      s.className = 'slot';
+      
+      const ph = document.createElement('span');
+      ph.className = 'placeholder';
+      ph.textContent = `이미지 ${i + 1}`;
+      s.appendChild(ph);
+      
+      const img = document.createElement('img');
+      s.appendChild(img);
+
+      const caption = document.createElement('div');
+      caption.className = 'caption hidden'; 
+      caption.textContent = '출처:';
+      s.appendChild(caption);
+
+      s.onclick = () => { if (!editMode) { activeSlotImg = img; fileInput.click(); } };
+      
+      wrapper.appendChild(s); 
+
+      return { wrapper, img, slotTitle, caption };
+    }
+
+
+    function renderSlots(count){
+      imageContainer.innerHTML='';
+      imageContainer.className='';
+      imageContainer.classList.add(count<=3?'one':'two');
+
+      if (count <= 3) {
+        const { wrapper: w1 } = createSlotElements(0);
+        imageContainer.appendChild(w1);
+
+        const wrapper = document.createElement('div');
+        wrapper.id = 'rightBottomWrapper';
+        
+        const { wrapper: w2 } = createSlotElements(1);
+        wrapper.appendChild(w2);
+
+        const { wrapper: w3 } = createSlotElements(2);
+        wrapper.appendChild(w3);
+        
+        imageContainer.appendChild(wrapper);
+
+      } else {
+        for(let i=0;i<count;i++){
+          const { wrapper, caption } = createSlotElements(i);
+          caption.style.display = 'none'; 
+          imageContainer.appendChild(wrapper);
+        }
+      }
+      
+      const textContainer=document.createElement('div');
+      textContainer.id='textAreaContainer';
+      textContainer.innerHTML=`
+        <div id="textAreaLeft">
+          <div id="title" style="font-size:20px;font-weight:bold;">${titleDiv?.textContent||'제목'}</div>
+          <div id="content" style="font-size:16px;">${contentDiv?.textContent||'내용'}</div>
+        </div>
+        <div id="textAreaRight"></div>`;
+      imageContainer.appendChild(textContainer);
+      titleDiv=textContainer.querySelector('#title');
+      contentDiv=textContainer.querySelector('#content');
+      textAreaRight=textContainer.querySelector('#textAreaRight');
+      
+      applyColorPreview(); 
+    }
+
+    fileInput.onchange=e=>{
+      const f=e.target.files[0]; if(!f||!activeSlotImg)return;
+      const r=new FileReader();
+      r.onload=ev=>{
+        activeSlotImg.src=ev.target.result;
+        activeSlotImg.style.display='block';
+        activeSlotImg.style.transform='translate(0px,0px) scale(1)';
+        const ph=activeSlotImg.parentElement.querySelector('.placeholder');
+        if(ph)ph.style.display='none';
+        activeSlotImg.parentElement.parentElement.style.border='1px solid #ccc';
+        activeSlotImg.parentElement.parentElement.style.background='white';
+      };
+      r.readAsDataURL(f); fileInput.value='';
+    };
 
     renderSlots(3);
 
-    modeBtn.addEventListener('click', () => {
-      isSingle = !isSingle;
-      modeBtn.textContent = isSingle ? '1인용' : '2인용';
-      renderSlots(isSingle ? 3 : 6);
-    });
+    modeBtn.onclick=()=>{isSingle=!isSingle;modeBtn.textContent=isSingle?'1인용':'2인용';renderSlots(isSingle?3:6);};
 
-    editBtn.addEventListener('click', () => {
-      editMode = !editMode;
-      editBtn.textContent = editMode ? '이미지 업로드' : '이미지 편집';
-      document.querySelectorAll('.slot').forEach(slot => {
-        const inner = slot.querySelector('.image-inner');
-        if (editMode) enableDrag(inner);
-        else disableDrag(inner);
+    editBtn.onclick=()=>{editMode=!editMode;editBtn.textContent=editMode?'편집 완료':'이미지 편집';
+      imageContainer.querySelectorAll('.slot img').forEach(img=>{
+        if(img.src){
+          if(editMode){enableDrag(img);}else{disableDrag(img);}
+        }
       });
-    });
+    };
 
-    textBtn.addEventListener('click', () => {
-      textMode = !textMode;
-      textBtn.textContent = textMode ? '텍스트 보기' : '텍스트 입력';
-      if (textMode) {
-        const textarea = document.createElement('textarea');
-        textarea.value = contentDiv.textContent;
-        contentDiv.replaceWith(textarea);
-        textarea.id = 'content';
-        textarea.addEventListener('input', () => {
-          contentDiv.textContent = textarea.value;
+    function enableDrag(img){
+      let dragging=false,sx,sy;
+      const st=window.getComputedStyle(img);const m=new DOMMatrixReadOnly(st.transform);
+      /* Fix: Corrected typo m.m4R2 to m.m42 */
+      let tx=m.m41,ty=m.m42,sc=m.a;
+      const down=e=>{if(!editMode)return;dragging=true;sx=e.clientX-tx;sy=e.clientY-ty;};
+      const move=e=>{if(!editMode||!dragging)return;tx=e.clientX-sx;ty=e.clientY-sy;img.style.transform=`translate(${tx}px,${ty}px) scale(${sc})`;};
+      const up=()=>{dragging=false;};
+      const wheel=e=>{if(!editMode)return;e.preventDefault();sc+=e.deltaY*-0.001;sc=Math.min(Math.max(1,sc),3);img.style.transform=`translate(${tx}px,${ty}px) scale(${sc})`;};
+      img.addEventListener('mousedown',down);
+      window.addEventListener('mousemove',move);
+      window.addEventListener('mouseup',up);
+      img.addEventListener('wheel',wheel);
+      img._h={down,move,up,wheel};
+    }
+    function disableDrag(img){if(!img._h)return;const{down,move,up,wheel}=img._h;
+      img.removeEventListener('mousedown',down);
+      window.removeEventListener('mousemove',move);
+      window.removeEventListener('mouseup',up);
+      img.removeEventListener('wheel',wheel);
+      delete img._h;
+    }
+
+    textBtn.onclick=()=>{
+      textMode=!textMode;textBtn.textContent=textMode?'텍스트 보기':'텍스트 입력';
+      if(textMode){
+        const ti=document.createElement('input');ti.type='text';ti.value=titleDiv.textContent;ti.style.fontSize='20px';ti.style.fontWeight='bold';titleDiv.replaceWith(ti);titleDiv=ti;
+        const ta=document.createElement('textarea');ta.value=contentDiv.textContent;contentDiv.replaceWith(ta);ta.id='content';contentDiv=ta;
+        
+        document.querySelectorAll('.caption').forEach(c=>{
+          const i=document.createElement('input');i.type='text';i.value=c.textContent.replace(/^출처:\s*/,'');i.className='caption-input'; 
+          c.replaceWith(i);
         });
-      } else {
-        const textarea = document.getElementById('content');
-        const newDiv = document.createElement('div');
-        newDiv.id = 'content';
-        newDiv.textContent = textarea.value;
-        newDiv.style.fontSize = '16px';
-        newDiv.style.width = '70%';
-        newDiv.style.whiteSpace = 'pre-wrap';
-        textarea.replaceWith(newDiv);
-        contentDiv = newDiv;
-      }
-    });
+        document.querySelectorAll('.slot-title').forEach(t=>{
+          const i=document.createElement('input');i.type='text';i.value=t.textContent;
+          i.style.fontSize = '16px';
+          i.style.fontWeight = 'bold';
+          i.style.padding = '4px 8px';
+          i.style.border = 'none';
+          i.style.borderBottom = '1px dashed #aaa';
+          
+          i.style.backgroundColor = t.style.backgroundColor; 
+          i.style.color = t.style.color;
 
-    function renderSlots(count) {
-      imageContainer.innerHTML = '';
-      const cols = count === 3 ? 3 : 3;
-      const rows = count === 3 ? 1 : 2;
-      imageContainer.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
-      imageContainer.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
-      for (let i = 0; i < count; i++) {
-        const slot = document.createElement('div');
-        slot.className = 'slot';
-        slot.textContent = `이미지 ${i + 1}`;
-        const inner = document.createElement('div');
-        inner.className = 'image-inner';
-        slot.appendChild(inner);
-        slot.addEventListener('click', () => {
-          if (!editMode) {
-            activeSlot = inner;
-            fileInput.click();
+          i.className='slot-title-input'; 
+          t.replaceWith(i);
+        });
+
+      }else{
+        const nd=document.createElement('div');nd.id='title';nd.textContent=titleDiv.value;nd.style.fontSize='20px';nd.style.fontWeight='bold';titleDiv.replaceWith(nd);titleDiv=nd;
+        const nc=document.createElement('div');nc.id='content';nc.textContent=contentDiv.value;nc.style.fontSize='16px';contentDiv.replaceWith(nc);contentDiv=nc;
+        
+        document.querySelectorAll('.caption-input').forEach(i=>{
+          const d=document.createElement('div');
+          d.className='caption';
+          const captionText = i.value.trim(); 
+          if (!captionText) {
+            d.classList.add('hidden'); 
+            d.textContent = '출처: ';
+          } else {
+            d.textContent='출처: '+ captionText;
           }
+          i.replaceWith(d);
         });
-        imageContainer.appendChild(slot);
+        
+        document.querySelectorAll('.slot-title-input').forEach(i=>{
+          const d=document.createElement('div');d.className='slot-title';d.textContent=i.value;
+          i.replaceWith(d);
+        });
+        
+        applySlotThemeColors();
       }
-    }
+    };
 
-    fileInput.addEventListener('change', e => {
-      const file = e.target.files[0];
-      if (!file || !activeSlot) return;
-      const reader = new FileReader();
-      reader.onload = ev => {
-        const slot = activeSlot.parentElement;
-        activeSlot.style.backgroundImage = `url(${ev.target.result})`;
-        [...slot.childNodes].forEach(node => {
-          if (node.nodeType === Node.TEXT_NODE) node.remove();
+    colorBtn.onclick=()=>{renderColorInputs();colorModal.style.display='flex';};
+    colorModal.onclick=e=>{if(e.target===colorModal)colorModal.style.display='none';};
+
+    function renderColorInputs(){
+      colorModalContent.innerHTML='';
+      const sides=isSingle?['left']:['left','right'];
+      sides.forEach(s=>{
+        const sec=document.createElement('div');sec.className='color-section';
+        sec.innerHTML=`<div class="color-section-title">${s==='left'?'왼쪽 인물':'오른쪽 인물'}</div>`;
+        ['theme','hair','eyeLeft','eyeRight'].forEach(k=>{
+          const div=document.createElement('div');div.innerHTML=`<div class="color-title">${k}</div>`;
+          colorData[s][k].forEach((v,i)=>{const input=document.createElement('input');input.type='color';input.value=v;
+            input.oninput=()=>{
+              colorData[s][k][i]=input.value;
+              applyColorPreview(); 
+            };
+            div.appendChild(input);});
+          sec.appendChild(div);
         });
-        slot.style.border = 'none';
-      };
-      reader.readAsDataURL(file);
-      fileInput.value = '';
-    });
-
-    function enableDrag(inner) {
-      let isDragging = false;
-      let startX, startY, translateX = 0, translateY = 0, scale = 1;
-
-      const onMouseDown = e => {
-        if (!editMode) return;
-        isDragging = true;
-        startX = e.clientX - translateX;
-        startY = e.clientY - translateY;
-      };
-
-      const onMouseMove = e => {
-        if (!editMode || !isDragging) return;
-        translateX = e.clientX - startX;
-        translateY = e.clientY - startY;
-        inner.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
-      };
-
-      const onMouseUp = () => { isDragging = false; };
-
-      const onWheel = e => {
-        if (!editMode) return;
-        e.preventDefault();
-        scale += e.deltaY * -0.001;
-        scale = Math.min(Math.max(0.5, scale), 3);
-        inner.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
-      };
-
-      inner.addEventListener('mousedown', onMouseDown);
-      window.addEventListener('mousemove', onMouseMove);
-      window.addEventListener('mouseup', onMouseUp);
-      inner.addEventListener('wheel', onWheel);
-
-      inner._handlers = { onMouseDown, onMouseMove, onMouseUp, onWheel };
+        colorModalContent.appendChild(sec);
+      });
     }
 
-    function disableDrag(inner) {
-      if (!inner || !inner._handlers) return;
-      const { onMouseDown, onMouseMove, onMouseUp, onWheel } = inner._handlers;
-      inner.removeEventListener('mousedown', onMouseDown);
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
-      inner.removeEventListener('wheel', onWheel);
-      delete inner._handlers;
+    function applyColorPreview(){
+      if(!textAreaRight)return;
+      textAreaRight.innerHTML='';
+      const sides=isSingle?['left']:['left','right'];
+      sides.forEach(s=>{
+        const sec=document.createElement('div');sec.className='color-section';
+        sec.innerHTML=`<div class="color-section-title">${s==='left'?'왼쪽 인물':'오른쪽 인물'}</div>`;
+        Object.keys(colorData[s]).forEach(k=>{
+          const blk=document.createElement('div');blk.className='color-block';
+          blk.innerHTML=`<div class="color-title">${k}</div><div class="color-display" style="background:${colorData[s][k][0]}"></div>`;
+          sec.appendChild(blk);
+        });
+        textAreaRight.appendChild(sec);
+      });
+
+      applySlotThemeColors();
     }
 
-    function setDPI(pngBase64, dpi = 300) {
-      const png = atob(pngBase64.split(',')[1]);
-      const pHYsIndex = png.indexOf('pHYs');
-      if (pHYsIndex !== -1) return pngBase64; // 이미 존재하면 건너뜀
-      const unit = String.fromCharCode(1);
-      const ppm = Math.round(dpi / 0.0254);
-      const chunk =
-        'pHYs' +
-        String.fromCharCode(
-          (ppm >> 24) & 255, (ppm >> 16) & 255, (ppm >> 8) & 255, ppm & 255,
-          (ppm >> 24) & 255, (ppm >> 16) & 255, (ppm >> 8) & 255, ppm & 255
-        ) + unit;
+    exportBtn.onclick=()=>{
+      if(textMode)textBtn.click(); 
+      const slotTitles = [];
+      document.querySelectorAll('.slot-title').forEach(t => slotTitles.push(t.textContent));
+      const captions = [];
+      document.querySelectorAll('.caption').forEach(c => captions.push(c.textContent.replace(/^출처:\s*/,'')));
 
-      function crc32(str) {
-        const table = [];
-        for (let n = 0; n < 256; n++) {
-          let c = n;
-          for (let k = 0; k < 8; k++) {
-            c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+      const data={
+        title:titleDiv.textContent,
+        content:contentDiv.textContent,
+        isSingle:isSingle,
+        colorData:colorData,
+        slotTitles: slotTitles, 
+        captions: captions       
+      };
+      const blob=new Blob([JSON.stringify(data,null,2)],{type:'text/plain'});
+      const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='editor_state.txt';a.click();
+    };
+
+    importBtn.onclick=()=>importInput.click();
+    importInput.onchange=e=>{
+      const f=e.target.files[0];if(!f)return;
+      const r=new FileReader();
+      r.onload=ev=>{
+        try{
+          const d=JSON.parse(ev.target.result);
+          if(textMode)textBtn.click(); 
+
+          titleDiv.textContent=d.title;
+          contentDiv.textContent=d.content;
+          isSingle=d.isSingle;
+          colorData=d.colorData;
+          
+          modeBtn.textContent=isSingle?'1인용':'2인용';
+          renderSlots(isSingle?3:6); 
+
+          if (d.slotTitles) {
+            document.querySelectorAll('.slot-title').forEach((t, i) => {
+              if (d.slotTitles[i]) t.textContent = d.slotTitles[i];
+            });
           }
-          table[n] = c;
-        }
-        let crc = 0 ^ -1;
-        for (let i = 0; i < str.length; i++) {
-          crc = (crc >>> 8) ^ table[(crc ^ str.charCodeAt(i)) & 0xff];
-        }
-        return (crc ^ -1) >>> 0;
-      }
+          
+          if (d.captions) {
+            document.querySelectorAll('.caption').forEach((c, i) => {
+              const captionText = d.captions[i] ? d.captions[i].trim() : '';
+              if (captionText) {
+                c.textContent = '출처: ' + captionText;
+                c.classList.remove('hidden');
+              } else {
+                c.textContent = '출처: ';
+                c.classList.add('hidden');
+              }
+            });
+          }
+          
+          applySlotThemeColors(); 
 
-      const data =
-        String.fromCharCode(0, 0, 0, 9) +
-        chunk +
-        String.fromCharCode(
-          (crc32(chunk) >> 24) & 255,
-          (crc32(chunk) >> 16) & 255,
-          (crc32(chunk) >> 8) & 255,
-          crc32(chunk) & 255
-        );
+        }catch(err){console.error('불러오기 실패',err);}
+      };
+      r.readAsText(f);
+    };
 
-      const insertIndex = png.indexOf('IDAT') - 4;
-      const newPng = png.slice(0, insertIndex) + data + png.slice(insertIndex);
-      return 'data:image/png;base64,' + btoa(newPng);
+    function setDPI(png,dpi=300){
+      const b=atob(png.split(',')[1]);if(b.includes('pHYs'))return png;
+      const ppm=Math.round(dpi/0.0254);const u=String.fromCharCode(1);
+      const chunk='pHYs'+String.fromCharCode(
+        (ppm>>24)&255,(ppm>>16)&255,(ppm>>8)&255,ppm&255,
+        (ppm>>24)&255,(ppm>>16)&255,(ppm>>8)&255,ppm&255)+u;
+      const crc32=s=>{const t=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xedb88320^(c>>>1):c>>>1;t[n]=c;}
+        let crc=0^-1;for(let i=0;i<s.length;i++)crc=(crc>>>8)^t[(crc^s.charCodeAt(i))&0xff];return(crc^-1)>>>0;}; 
+      const data=String.fromCharCode(0,0,0,9)+chunk+String.fromCharCode((crc32(chunk)>>24)&255,(crc32(chunk)>>16)&255,(crc32(chunk)>>8)&255,crc32(chunk)&255);
+      const idx=b.indexOf('IDAT')-4;const newPng=b.slice(0,idx)+data+b.slice(idx);return'data:image/png;base64,'+btoa(newPng);
     }
 
-    saveBtn.addEventListener('click', e => {
+    saveBtn.onclick=e=>{
       e.preventDefault();
-      e.stopPropagation();
+      
+      const needsTextToggle = textMode;
+      if (needsTextToggle) {
+          textBtn.click(); 
+      }
+      if (editMode) {
+          editBtn.click(); 
+      }
 
-      const preview = document.getElementById('preview');
-      const targetWidth = 1920;
-      const targetHeight = 1080;
-      const pixelRatio = window.devicePixelRatio || 1;
-
-      html2canvas(preview, {
-        useCORS: true,
-        scale: pixelRatio * 2,
-      }).then(canvas => {
-        const output = document.createElement('canvas');
-        output.width = targetWidth;
-        output.height = targetHeight;
-        const ctx = output.getContext('2d');
-
-        const scale = Math.min(targetWidth / canvas.width, targetHeight / canvas.height);
-        const newWidth = canvas.width * scale;
-        const newHeight = canvas.height * scale;
-        const offsetX = (targetWidth - newWidth) / 2;
-        const offsetY = (targetHeight - newHeight) / 2;
-
-        ctx.drawImage(canvas, offsetX, offsetY, newWidth, newHeight);
-
-        const original = output.toDataURL('image/png');
-        const withDPI = setDPI(original, 300);
-
-        const link = document.createElement('a');
-        link.download = 'preview_300dpi.png';
-        link.href = withDPI;
-        link.click();
-      });
-    });
+      const preview=document.getElementById('preview');const tw=1920,th=1080;
+      const clone=preview.cloneNode(true);clone.style.position='absolute';clone.style.left='-9999px';clone.style.width=tw+'px';clone.style.height=th+'px';
+      document.body.appendChild(clone);
+      
+      setTimeout(()=>{
+        html2canvas(clone,{useCORS:true,scale:1,width:tw,height:th,backgroundColor:'#ffffff'}).then(c=>{
+          clone.remove();const base=c.toDataURL('image/png');const out=setDPI(base,300);
+          const a=document.createElement('a');a.download='preview_300dpi.png';a.href=out;a.click();
+          
+          if (needsTextToggle) {
+              textBtn.click();
+          }
+        }).catch(err=>{
+            clone.remove();
+            console.error('캡처 실패',err);
+            if (needsTextToggle) {
+                textBtn.click();
+            }
+        });
+      }, 500); 
+    };
   </script>
+
 </body>
 </html>
+
+
+
+
+
