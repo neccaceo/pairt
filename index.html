@@ -1,92 +1,168 @@
 <!DOCTYPE html>
 <html>
+
 <head>
   <meta charset="utf-8">
-  <title>이미지와 텍스트 미리보기 후 PNG 저장</title>
+  <title>6개 이미지 + 텍스트 + 비율 유지 PNG 저장</title>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <style>
-    body { font-family: sans-serif; }
-    #controls { margin-bottom: 15px; }
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+
     #preview {
+      position: relative;
+      width: 100%;
+      max-width: 960px;
+      aspect-ratio: 16 / 9;
       border: 1px solid #ccc;
       background-color: white;
-      width: 600px;
-      min-height: 400px;
-      padding: 20px;
+      box-sizing: border-box;
+      overflow: hidden;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      gap: 10px;
+      justify-content: space-between;
     }
+
     #imageContainer {
-      display: flex;
-      flex-wrap: wrap;
+      flex-grow: 1;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(2, 1fr);
       gap: 10px;
+      padding: 10px;
+      box-sizing: border-box;
+    }
+
+    .slot {
+      border: 1px dashed #aaa;
+      display: flex;
+      align-items: center;
       justify-content: center;
+      color: #777;
+      cursor: pointer;
+      background-size: cover;
+      background-position: center;
+      font-size: 14px;
     }
-    #imageContainer img {
-      max-width: 200px;
-      max-height: 200px;
-      border: 1px solid #ccc;
+
+    #textOverlay {
+      position: absolute;
+      bottom: 15px;
+      left: 0;
+      width: 100%;
+      text-align: center;
+      font-size: 18px;
+      font-weight: bold;
+      color: black;
+      white-space: pre-wrap;
+      padding: 0 20px;
+      box-sizing: border-box;
     }
+
+    #controls {
+      margin-top: 10px;
+    }
+
     textarea {
       width: 100%;
-      min-height: 80px;
+      min-height: 60px;
       resize: none;
+      box-sizing: border-box;
+      margin-top: 10px;
+    }
+
+    #saveBtn {
+      margin-top: 10px;
+      padding: 8px 16px;
+      cursor: pointer;
+    }
+
+    input[type="file"] {
+      display: none;
     }
   </style>
 </head>
+
 <body>
-  <div id="controls">
-    <input type="file" id="fileInput" accept="image/*" multiple>
-    <br><br>
-    <textarea id="textInput" placeholder="텍스트를 입력하세요..."></textarea>
-    <br>
-    <button id="saveBtn">PNG로 저장</button>
+  <div id="preview">
+    <div id="imageContainer">
+      <div class="slot" data-index="0">이미지 1</div>
+      <div class="slot" data-index="1">이미지 2</div>
+      <div class="slot" data-index="2">이미지 3</div>
+      <div class="slot" data-index="3">이미지 4</div>
+      <div class="slot" data-index="4">이미지 5</div>
+      <div class="slot" data-index="5">이미지 6</div>
+    </div>
+    <div id="textOverlay"></div>
   </div>
 
-  <div id="preview">
-    <div id="imageContainer"></div>
-    <div id="textContainer"></div>
+  <div id="controls">
+    <textarea id="textInput" placeholder="텍스트를 입력하세요..."></textarea>
+    <br>
+    <button id="saveBtn" type="button">1920x1080 PNG로 저장</button>
   </div>
+
+  <input type="file" id="fileInput" accept="image/*">
 
   <script>
     const fileInput = document.getElementById('fileInput');
     const textInput = document.getElementById('textInput');
     const preview = document.getElementById('preview');
     const imageContainer = document.getElementById('imageContainer');
-    const textContainer = document.getElementById('textContainer');
+    const textOverlay = document.getElementById('textOverlay');
     const saveBtn = document.getElementById('saveBtn');
+    let activeSlot = null;
 
-    // 여러 이미지 미리보기
-    fileInput.addEventListener('change', (event) => {
-      const files = event.target.files;
-      imageContainer.innerHTML = '';
-      for (const file of files) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const img = document.createElement('img');
-          img.src = e.target.result;
-          imageContainer.appendChild(img);
-        };
-        reader.readAsDataURL(file);
-      }
+    // 슬롯 클릭 시 파일 선택
+    document.querySelectorAll('.slot').forEach(slot => {
+      slot.addEventListener('click', () => {
+        activeSlot = slot;
+        fileInput.click();
+      });
     });
 
-    // 텍스트 실시간 반영
+    // 파일 선택 후 이미지 표시
+    fileInput.addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (!file || !activeSlot) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        activeSlot.style.backgroundImage = `url(${ev.target.result})`;
+        activeSlot.textContent = '';
+        activeSlot.style.border = 'none';
+      };
+      reader.readAsDataURL(file);
+      fileInput.value = ''; // 동일 파일 다시 선택 허용
+    });
+
+    // 텍스트 입력 반영
     textInput.addEventListener('input', () => {
-      textContainer.textContent = textInput.value;
+      textOverlay.textContent = textInput.value;
     });
 
-    // PNG 저장
-    saveBtn.addEventListener('click', () => {
+    // 저장 시 preview만 캡처 (controls 제외)
+    saveBtn.addEventListener('click', (e) => {
+      e.preventDefault();   
+      e.stopPropagation();  
+
       html2canvas(preview, { useCORS: true, scale: 2 }).then(canvas => {
+        const output = document.createElement('canvas');
+        output.width = 1920;
+        output.height = 1080;
+        const ctx = output.getContext('2d');
+        ctx.drawImage(canvas, 0, 0, 1920, 1080);
         const link = document.createElement('a');
-        link.download = 'preview.png';
-        link.href = canvas.toDataURL('image/png');
+        link.download = 'preview_1920x1080.png';
+        link.href = output.toDataURL('image/png');
         link.click();
       });
     });
+
   </script>
 </body>
+
 </html>
