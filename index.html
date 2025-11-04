@@ -1,18 +1,14 @@
 <!DOCTYPE html>
 <html>
-
 <head>
   <meta charset="utf-8">
-  <title>6개 이미지 + 텍스트 + 비율 유지 PNG 저장</title>
+  <title>이미지 편집 + 텍스트 입력 + 300DPI 저장</title>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <style>
-    body {
-      font-family: sans-serif;
-      margin: 0;
-      padding: 20px;
-      box-sizing: border-box;
-    }
-
+    body { font-family: sans-serif; margin: 0; padding: 20px; box-sizing: border-box; }
+    #topBar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    #modeBtn, #editBtn, #textBtn { padding: 8px 16px; cursor: pointer; }
+    #saveBtn { position: absolute; top: 20px; right: 20px; padding: 8px 16px; cursor: pointer; }
     #preview {
       position: relative;
       width: 100%;
@@ -20,13 +16,12 @@
       aspect-ratio: 16 / 9;
       border: 1px solid #ccc;
       background-color: white;
-      box-sizing: border-box;
       overflow: hidden;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
+      box-sizing: border-box;
     }
-
     #imageContainer {
       flex-grow: 1;
       display: grid;
@@ -36,133 +31,275 @@
       padding: 10px;
       box-sizing: border-box;
     }
-
     .slot {
+      position: relative;
+      overflow: hidden;
+      cursor: pointer;
       border: 1px dashed #aaa;
       display: flex;
       align-items: center;
       justify-content: center;
       color: #777;
-      cursor: pointer;
-      background-size: cover;
-      background-position: center;
       font-size: 14px;
     }
-
-    #textOverlay {
+    .image-inner {
       position: absolute;
-      bottom: 15px;
-      left: 0;
-      width: 100%;
-      text-align: center;
-      font-size: 18px;
-      font-weight: bold;
-      color: black;
-      white-space: pre-wrap;
-      padding: 0 20px;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-size: cover;
+      background-position: center;
+      transition: transform 0.05s linear;
+    }
+    .draggable { cursor: move; }
+    #textAreaContainer {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 20px;
       box-sizing: border-box;
     }
-
-    #controls {
-      margin-top: 10px;
-    }
-
-    textarea {
-      width: 100%;
-      min-height: 60px;
-      resize: none;
-      box-sizing: border-box;
-      margin-top: 10px;
-    }
-
-    #saveBtn {
-      margin-top: 10px;
-      padding: 8px 16px;
-      cursor: pointer;
-    }
-
-    input[type="file"] {
-      display: none;
-    }
+    #title { font-size: 20px; font-weight: bold; }
+    #content { font-size: 16px; width: 70%; white-space: pre-wrap; }
+    textarea { width: 70%; height: 80px; resize: none; font-size: 16px; }
+    input[type="file"] { display: none; }
   </style>
 </head>
-
 <body>
-  <div id="preview">
-    <div id="imageContainer">
-      <div class="slot" data-index="0">이미지 1</div>
-      <div class="slot" data-index="1">이미지 2</div>
-      <div class="slot" data-index="2">이미지 3</div>
-      <div class="slot" data-index="3">이미지 4</div>
-      <div class="slot" data-index="4">이미지 5</div>
-      <div class="slot" data-index="5">이미지 6</div>
-    </div>
-    <div id="textOverlay"></div>
+  <div id="topBar">
+    <button id="modeBtn" type="button">1인용</button>
+    <button id="editBtn" type="button">이미지 편집</button>
+    <button id="textBtn" type="button">텍스트 입력</button>
   </div>
 
-  <div id="controls">
-    <textarea id="textInput" placeholder="텍스트를 입력하세요..."></textarea>
-    <br>
-    <button id="saveBtn" type="button">1920x1080 PNG로 저장</button>
+  <button id="saveBtn" type="button">이미지 저장</button>
+
+  <div id="preview">
+    <div id="imageContainer"></div>
+    <div id="textAreaContainer">
+      <div id="title">제목</div>
+      <div id="content">내용</div>
+    </div>
   </div>
 
   <input type="file" id="fileInput" accept="image/*">
 
   <script>
-    const fileInput = document.getElementById('fileInput');
-    const textInput = document.getElementById('textInput');
-    const preview = document.getElementById('preview');
-    const imageContainer = document.getElementById('imageContainer');
-    const textOverlay = document.getElementById('textOverlay');
+    const modeBtn = document.getElementById('modeBtn');
+    const editBtn = document.getElementById('editBtn');
+    const textBtn = document.getElementById('textBtn');
     const saveBtn = document.getElementById('saveBtn');
+    const fileInput = document.getElementById('fileInput');
+    const imageContainer = document.getElementById('imageContainer');
+    let contentDiv = document.getElementById('content');
     let activeSlot = null;
+    let isSingle = true;
+    let editMode = false;
+    let textMode = false;
 
-    // 슬롯 클릭 시 파일 선택
-    document.querySelectorAll('.slot').forEach(slot => {
-      slot.addEventListener('click', () => {
-        activeSlot = slot;
-        fileInput.click();
+    renderSlots(3);
+
+    modeBtn.addEventListener('click', () => {
+      isSingle = !isSingle;
+      modeBtn.textContent = isSingle ? '1인용' : '2인용';
+      renderSlots(isSingle ? 3 : 6);
+    });
+
+    editBtn.addEventListener('click', () => {
+      editMode = !editMode;
+      editBtn.textContent = editMode ? '이미지 업로드' : '이미지 편집';
+      document.querySelectorAll('.slot').forEach(slot => {
+        const inner = slot.querySelector('.image-inner');
+        if (editMode) enableDrag(inner);
+        else disableDrag(inner);
       });
     });
 
-    // 파일 선택 후 이미지 표시
+    textBtn.addEventListener('click', () => {
+      textMode = !textMode;
+      textBtn.textContent = textMode ? '텍스트 보기' : '텍스트 입력';
+      if (textMode) {
+        const textarea = document.createElement('textarea');
+        textarea.value = contentDiv.textContent;
+        contentDiv.replaceWith(textarea);
+        textarea.id = 'content';
+        textarea.addEventListener('input', () => {
+          contentDiv.textContent = textarea.value;
+        });
+      } else {
+        const textarea = document.getElementById('content');
+        const newDiv = document.createElement('div');
+        newDiv.id = 'content';
+        newDiv.textContent = textarea.value;
+        newDiv.style.fontSize = '16px';
+        newDiv.style.width = '70%';
+        newDiv.style.whiteSpace = 'pre-wrap';
+        textarea.replaceWith(newDiv);
+        contentDiv = newDiv;
+      }
+    });
+
+    function renderSlots(count) {
+      imageContainer.innerHTML = '';
+      const cols = count === 3 ? 3 : 3;
+      const rows = count === 3 ? 1 : 2;
+      imageContainer.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+      imageContainer.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+      for (let i = 0; i < count; i++) {
+        const slot = document.createElement('div');
+        slot.className = 'slot';
+        slot.textContent = `이미지 ${i + 1}`;
+        const inner = document.createElement('div');
+        inner.className = 'image-inner';
+        slot.appendChild(inner);
+        slot.addEventListener('click', () => {
+          if (!editMode) {
+            activeSlot = inner;
+            fileInput.click();
+          }
+        });
+        imageContainer.appendChild(slot);
+      }
+    }
+
     fileInput.addEventListener('change', e => {
       const file = e.target.files[0];
       if (!file || !activeSlot) return;
       const reader = new FileReader();
       reader.onload = ev => {
+        const slot = activeSlot.parentElement;
         activeSlot.style.backgroundImage = `url(${ev.target.result})`;
-        activeSlot.textContent = '';
-        activeSlot.style.border = 'none';
+        [...slot.childNodes].forEach(node => {
+          if (node.nodeType === Node.TEXT_NODE) node.remove();
+        });
+        slot.style.border = 'none';
       };
       reader.readAsDataURL(file);
-      fileInput.value = ''; // 동일 파일 다시 선택 허용
+      fileInput.value = '';
     });
 
-    // 텍스트 입력 반영
-    textInput.addEventListener('input', () => {
-      textOverlay.textContent = textInput.value;
-    });
+    function enableDrag(inner) {
+      let isDragging = false;
+      let startX, startY, translateX = 0, translateY = 0, scale = 1;
 
-    // 저장 시 preview만 캡처 (controls 제외)
-    saveBtn.addEventListener('click', (e) => {
-      e.preventDefault();   
-      e.stopPropagation();  
+      const onMouseDown = e => {
+        if (!editMode) return;
+        isDragging = true;
+        startX = e.clientX - translateX;
+        startY = e.clientY - translateY;
+      };
 
-      html2canvas(preview, { useCORS: true, scale: 2 }).then(canvas => {
+      const onMouseMove = e => {
+        if (!editMode || !isDragging) return;
+        translateX = e.clientX - startX;
+        translateY = e.clientY - startY;
+        inner.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+      };
+
+      const onMouseUp = () => { isDragging = false; };
+
+      const onWheel = e => {
+        if (!editMode) return;
+        e.preventDefault();
+        scale += e.deltaY * -0.001;
+        scale = Math.min(Math.max(0.5, scale), 3);
+        inner.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+      };
+
+      inner.addEventListener('mousedown', onMouseDown);
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
+      inner.addEventListener('wheel', onWheel);
+
+      inner._handlers = { onMouseDown, onMouseMove, onMouseUp, onWheel };
+    }
+
+    function disableDrag(inner) {
+      if (!inner || !inner._handlers) return;
+      const { onMouseDown, onMouseMove, onMouseUp, onWheel } = inner._handlers;
+      inner.removeEventListener('mousedown', onMouseDown);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      inner.removeEventListener('wheel', onWheel);
+      delete inner._handlers;
+    }
+
+    function setDPI(pngBase64, dpi = 300) {
+      const png = atob(pngBase64.split(',')[1]);
+      const pHYsIndex = png.indexOf('pHYs');
+      if (pHYsIndex !== -1) return pngBase64; // 이미 존재하면 건너뜀
+      const unit = String.fromCharCode(1);
+      const ppm = Math.round(dpi / 0.0254);
+      const chunk =
+        'pHYs' +
+        String.fromCharCode(
+          (ppm >> 24) & 255, (ppm >> 16) & 255, (ppm >> 8) & 255, ppm & 255,
+          (ppm >> 24) & 255, (ppm >> 16) & 255, (ppm >> 8) & 255, ppm & 255
+        ) + unit;
+
+      function crc32(str) {
+        const table = [];
+        for (let n = 0; n < 256; n++) {
+          let c = n;
+          for (let k = 0; k < 8; k++) {
+            c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+          }
+          table[n] = c;
+        }
+        let crc = 0 ^ -1;
+        for (let i = 0; i < str.length; i++) {
+          crc = (crc >>> 8) ^ table[(crc ^ str.charCodeAt(i)) & 0xff];
+        }
+        return (crc ^ -1) >>> 0;
+      }
+
+      const data =
+        String.fromCharCode(0, 0, 0, 9) +
+        chunk +
+        String.fromCharCode(
+          (crc32(chunk) >> 24) & 255,
+          (crc32(chunk) >> 16) & 255,
+          (crc32(chunk) >> 8) & 255,
+          crc32(chunk) & 255
+        );
+
+      const insertIndex = png.indexOf('IDAT') - 4;
+      const newPng = png.slice(0, insertIndex) + data + png.slice(insertIndex);
+      return 'data:image/png;base64,' + btoa(newPng);
+    }
+
+    saveBtn.addEventListener('click', e => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const preview = document.getElementById('preview');
+      const targetWidth = 1920;
+      const targetHeight = 1080;
+      const pixelRatio = window.devicePixelRatio || 1;
+
+      html2canvas(preview, {
+        useCORS: true,
+        scale: pixelRatio * 2,
+      }).then(canvas => {
         const output = document.createElement('canvas');
-        output.width = 1920;
-        output.height = 1080;
+        output.width = targetWidth;
+        output.height = targetHeight;
         const ctx = output.getContext('2d');
-        ctx.drawImage(canvas, 0, 0, 1920, 1080);
+
+        const scale = Math.min(targetWidth / canvas.width, targetHeight / canvas.height);
+        const newWidth = canvas.width * scale;
+        const newHeight = canvas.height * scale;
+        const offsetX = (targetWidth - newWidth) / 2;
+        const offsetY = (targetHeight - newHeight) / 2;
+
+        ctx.drawImage(canvas, offsetX, offsetY, newWidth, newHeight);
+
+        const original = output.toDataURL('image/png');
+        const withDPI = setDPI(original, 300);
+
         const link = document.createElement('a');
-        link.download = 'preview_1920x1080.png';
-        link.href = output.toDataURL('image/png');
+        link.download = 'preview_300dpi.png';
+        link.href = withDPI;
         link.click();
       });
     });
-
   </script>
 </body>
-
 </html>
